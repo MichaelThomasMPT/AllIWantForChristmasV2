@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>All I Want For Christmas App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <div class="sparkle s1"></div>
+      <div class="sparkle s2"></div>
+      <div class="sparkle s3"></div>
+      <div class="sparkle s4"></div>
+
+      <div class="badge">
+        <div class="badge-dot"></div>
+        Mariah Carey Early Warning System
+      </div>
+
+      <h1>All I Want For Christmas</h1>
+      <div class="subtitle">Tap whenever you hear the song 🎶</div>
+
+      <button id="logButton" class="big-button">
+        <span class="emoji">🎄</span>
+        <span>I HEAR MARIAH</span>
+      </button>
+
+      <div class="secondary-row">
+        <button id="viewLogButton" class="secondary-button">📜 View Log</button>
+        <button id="retryLocationButton" class="secondary-button">📍 Retry Location</button>
+      </div>
+
+      <div id="status" class="status"></div>
+      <div class="hint">
+        Location helps you recall where you were ambushed.<br>
+        Some phones require HTTPS.
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
