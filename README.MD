@@ -1,4 +1,6 @@
-# All I Want For Christmas (Mariah Tracker)
+# All I Want For Christmas
+
+***DISCLAIMER: This was completely vibe-coded.***
 
 A tiny Flask web app you can open on your phone to track every time you hear  
 **“All I Want For Christmas Is You”** by Mariah Carey out in the wild.  
