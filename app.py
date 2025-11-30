@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template, Response
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
+from collections import defaultdict
 import os
 from pathlib import Path
 import csv
@@ -195,33 +196,54 @@ def log_listen():
         return jsonify({"success": False, "error": "Internal error"}), 500
 
 
+
 @app.route("/logs", methods=["GET"])
 def view_logs():
-    rows = []
+    rows: list[dict] = []
     if LOG_FILE.exists() and LOG_FILE.is_file():
         with LOG_FILE.open("r", newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
 
-    # Convert server_timestamp_utc (ISO, UTC) into user's timezone
+    # Convert timestamps and prepare for grouping
+    year_groups: dict[object, list[dict]] = defaultdict(list)
+
     for row in rows:
         raw_ts = row.get("server_timestamp_utc", "")
         display = raw_ts
+        year_label: object = "Unknown"
+
         try:
             dt = datetime.fromisoformat(raw_ts)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             local_dt = dt.astimezone(USER_TZ)
+
             # Human-readable, no timezone suffix
             display = local_dt.strftime("%d %b %Y, %H:%M:%S")
+            year_label = local_dt.year
         except Exception:
+            # If parsing fails, we keep the raw timestamp and year "Unknown"
             pass
 
         row["display_time"] = display
         row["location_name"] = row.get("location_name", "")
+        # Keep lat/lon as strings from CSV (for map links / display)
+        row["latitude"] = row.get("latitude", "")
+        row["longitude"] = row.get("longitude", "")
 
-    return render_template("logs.html", rows=rows)
+        year_groups[year_label].append(row)
 
+    # Sort years: newest year first, "Unknown" last
+    def year_sort_key(y):
+        if isinstance(y, int):
+            return (0, -y)  # group of valid years, descending
+        return (1, 0)      # "Unknown" at the end
+
+    ordered_years = sorted(year_groups.keys(), key=year_sort_key)
+    ordered_year_groups = [(year, year_groups[year]) for year in ordered_years]
+
+    return render_template("logs.html", year_groups=ordered_year_groups)
 
 @app.route("/robots.txt")
 def robots_txt():

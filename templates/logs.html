@@ -1,61 +1,65 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>All I Want For Christmas – Logs</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  </head>
-  <body class="page-logs">
-    <div class="logs-container">
-      <h1>Log</h1>
-      <p class="subtitle">
-        One entry for each time you’ve heard it.
-      </p>
+<head>
+  <meta charset="utf-8">
+  <title>All I Want For Christmas – Log</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-      <div class="nav">
-        <button class="btn" onclick="window.location.href='/'">
-          ⬅️ Back
-        </button>
-      </div>
-
-      {% if rows %}
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Time</th>
-              <th>Location</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in rows %}
-            <tr>
-              <td>{{ loop.index }}</td>
-              <td>{{ row.display_time }}</td>
-              <td>
-                {% if row.location_name %}
-                  {{ row.location_name }}
-                {% else %}
-                  {% if row.latitude and row.longitude %}
-                    ({{ row.latitude }}, {{ row.longitude }})
-                  {% else %}
-                    (no location)
-                  {% endif %}
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="empty">
-        No logs yet. Go back and wait for the first jingle.
-      </div>
-      {% endif %}
+  <!-- Use the single style.css at static/style.css -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="page-logs">
+  <div class="logs-container">
+    <h1>Mariah Plays by Year</h1>
+    <div class="subtitle">
+      A totally healthy and normal amount of Mariah Carey.
     </div>
-  </body>
+
+    <div class="nav">
+      <button class="btn" onclick="window.location.href='/'">
+        ⬅️ Back to button
+      </button>
+    </div>
+
+    {% if year_groups %}
+      {% for year, rows in year_groups %}
+        <section class="year-section" style="margin-top: 1.2rem;">
+          <h2 style="margin: 0 0 0.4rem 0; font-size: 1.1rem;">
+            {{ year }}
+          </h2>
+          <div class="subtitle" style="margin-bottom: 0.4rem;">
+            {{ rows|length }} play{{ 's' if rows|length != 1 else '' }}
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Time</th>
+                  <th>Location</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                  <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ row.display_time }}</td>
+                    <td>
+                      {{ row.location_name or '(unknown location)' }}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {% endfor %}
+    {% else %}
+      <div class="empty">
+        No logs yet. Wait for the first jingle of the season…
+      </div>
+    {% endif %}
+  </div>
+</body>
 </html>
