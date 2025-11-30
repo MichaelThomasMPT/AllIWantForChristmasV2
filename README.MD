@@ -39,3 +39,23 @@ App becomes available at:
 http://localhost:2025
 ```
 
+## ⏰ Setting Your Timezone in Docker Compose
+
+The app stores all timestamps in UTC internally, but you can configure which
+timezone they are converted into when displayed on the `/logs` page.
+
+Add the following environment variable to your `docker-compose.yml`:
+
+```yaml
+services:
+  all-i-want:
+    build: .
+    ports:
+      - "2025:2025"
+    volumes:
+      - ./data:/data
+    environment:
+      - FLASK_ENV=production
+      - USER_TIMEZONE=Australia/Perth
+
+
