@@ -41,10 +41,8 @@ async function sendLog() {
   button.disabled = true;
 
   const payload = {
-    client_timestamp: new Date().toISOString(),
     latitude: lastPosition ? lastPosition.latitude : null,
     longitude: lastPosition ? lastPosition.longitude : null,
-    accuracy: lastPosition ? lastPosition.accuracy : null,
   };
 
   try {

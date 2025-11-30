@@ -81,10 +81,8 @@
       const clientTs = new Date().toISOString();
 
       const payload = {
-        client_timestamp: clientTs,
         latitude: lastPosition ? lastPosition.latitude : null,
         longitude: lastPosition ? lastPosition.longitude : null,
-        accuracy: lastPosition ? lastPosition.accuracy : null,
       };
 
       try {
@@ -107,7 +105,7 @@
         }
       } catch (e) {
         console.error(e);
-        setStatus("Couldn't send to server. Are you on the same network?", "error");
+        setStatus("Couldn't send request: " + e.message, "error");
       } finally {
         button.disabled = false;
         button.classList.remove("big-button-disabled");

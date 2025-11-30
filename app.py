@@ -1,6 +1,6 @@
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template, Response
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo 
+from zoneinfo import ZoneInfo
 import os
 from pathlib import Path
 import csv
@@ -15,47 +15,73 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 # CSV file inside that directory
 LOG_FILE = LOG_DIR / "christmas_listens.csv"
 
-# User timezone for displaying log times
+# Maximum number of data rows allowed in the CSV
+MAX_ROWS = 1000
+
+# User timezone for displaying log times (default UTC)
 USER_TIMEZONE = os.getenv("USER_TIMEZONE", "UTC")
 USER_TZ = ZoneInfo(USER_TIMEZONE)
 
-def append_log_row(data):
+
+def get_row_count() -> int:
+    """
+    Return the number of data rows currently in the CSV (excluding header).
+    If the file doesn't exist, returns 0.
+    """
+    if not LOG_FILE.exists() or not LOG_FILE.is_file():
+        return 0
+
+    count = 0
+    with LOG_FILE.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        # Skip header if present
+        try:
+            next(reader)
+        except StopIteration:
+            return 0
+
+        for _ in reader:
+            count += 1
+
+    return count
+
+
+def append_log_row(lat: float | None, lon: float | None) -> None:
+    """
+    Append a row to the CSV log using server time (UTC) and optional coordinates.
+    Assumes the caller has already checked the row-count limit.
+    """
     file_exists = LOG_FILE.exists()
-
     server_ts = datetime.now(timezone.utc).isoformat()
-    client_ts = data.get("client_timestamp", "")
-    lat = data.get("latitude")
-    lon = data.get("longitude")
 
-    # Convert to numeric if possible
-    lat_val = lat if isinstance(lat, (int, float)) else None
-    lon_val = lon if isinstance(lon, (int, float)) else None
-
-    # Reverse geocode if we have coordinates
+    # Reverse geocode if we have valid coordinates
     location_name = ""
-    if lat_val is not None and lon_val is not None:
-        location_name = reverse_geocode(lat_val, lon_val)
+    if lat is not None and lon is not None:
+        location_name = reverse_geocode(lat, lon)
 
     with LOG_FILE.open("a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
-        # Write header only if file doesn't exist yet
+        # New header (no client_timestamp anymore)
         if not file_exists:
-            writer.writerow([
-                "server_timestamp_utc",
-                "client_timestamp",
-                "latitude",
-                "longitude",
-                "location_name",
-            ])
+            writer.writerow(
+                [
+                    "server_timestamp_utc",
+                    "latitude",
+                    "longitude",
+                    "location_name",
+                ]
+            )
 
-        writer.writerow([
-            server_ts,
-            client_ts,
-            f"{lat_val:.6f}" if lat_val is not None else "",
-            f"{lon_val:.6f}" if lon_val is not None else "",
-            location_name,
-        ])
+        writer.writerow(
+            [
+                server_ts,
+                f"{lat:.6f}" if lat is not None else "",
+                f"{lon:.6f}" if lon is not None else "",
+                location_name,
+            ]
+        )
+
 
 @app.route("/")
 def index():
@@ -64,12 +90,110 @@ def index():
 
 @app.route("/log", methods=["POST"])
 def log_listen():
+    """
+    Accepts ONLY:
+    {
+      "latitude": <number>,
+      "longitude": <number>
+    }
+    - No extra fields allowed
+    - Lat in [-90, 90], Lon in [-180, 180]
+    - Rejects if CSV already has MAX_ROWS rows.
+    """
+    # Enforce maximum rows first
+    current_rows = get_row_count()
+    if current_rows >= MAX_ROWS:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": f"Log is full ({MAX_ROWS} entries). "
+                             f"Please archive or delete the file before logging more.",
+                }
+            ),
+            429,
+        )
+
+    data = request.get_json(force=True, silent=True)
+
+    if not isinstance(data, dict):
+        return (
+            jsonify({"success": False, "error": "JSON body must be an object"}),
+            400,
+        )
+
+    allowed_keys = {"latitude", "longitude"}
+    keys = set(data.keys())
+
+    missing = allowed_keys - keys
+    extra = keys - allowed_keys
+
+    if missing:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": f"Missing fields: {', '.join(sorted(missing))}",
+                }
+            ),
+            400,
+        )
+
+    if extra:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": f"Unexpected fields: {', '.join(sorted(extra))}",
+                }
+            ),
+            400,
+        )
+
+    # Validate numeric + range
     try:
-        data = request.get_json(force=True) or {}
-        append_log_row(data)
+        lat = float(data["latitude"])
+        lon = float(data["longitude"])
+    except (TypeError, ValueError):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Latitude and longitude must be numbers",
+                }
+            ),
+            400,
+        )
+
+    if not (-90.0 <= lat <= 90.0):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Latitude must be between -90 and 90",
+                }
+            ),
+            400,
+        )
+
+    if not (-180.0 <= lon <= 180.0):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Longitude must be between -180 and 180",
+                }
+            ),
+            400,
+        )
+
+    try:
+        append_log_row(lat, lon)
         return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    except Exception:
+        # You can log the exception here if you want
+        return jsonify({"success": False, "error": "Internal error"}), 500
+
 
 @app.route("/logs", methods=["GET"])
 def view_logs():
@@ -84,7 +208,6 @@ def view_logs():
         raw_ts = row.get("server_timestamp_utc", "")
         display = raw_ts
         try:
-            # Handle ISO datetime (with or without tz)
             dt = datetime.fromisoformat(raw_ts)
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
@@ -92,18 +215,25 @@ def view_logs():
             # Human-readable, no timezone suffix
             display = local_dt.strftime("%d %b %Y, %H:%M:%S")
         except Exception:
-            # If parsing fails, fall back to raw string
             pass
 
         row["display_time"] = display
         row["location_name"] = row.get("location_name", "")
 
-    return render_template(
-        "logs.html",
-        rows=rows,
-    )
+    return render_template("logs.html", rows=rows)
 
-def reverse_geocode(lat, lon):
+
+@app.route("/robots.txt")
+def robots_txt():
+    """
+    Tell well-behaved crawlers not to index the logs.
+    (Doesn't provide real security, but avoids accidental exposure.)
+    """
+    content = "User-agent: *\nDisallow: /logs\n"
+    return Response(content, mimetype="text/plain")
+
+
+def reverse_geocode(lat: float, lon: float) -> str:
     """
     Return a human-readable location string for given lat/lon.
     Uses Nominatim (OpenStreetMap). Keep query rate low.
@@ -118,9 +248,7 @@ def reverse_geocode(lat, lon):
             "addressdetails": 1,
         }
 
-        headers = {
-            "User-Agent": "all-i-want-for-christmas/1.0"
-        }
+        headers = {"User-Agent": "all-i-want-for-christmas/1.0"}
 
         r = requests.get(url, params=params, headers=headers, timeout=4)
         r.raise_for_status()
@@ -131,12 +259,13 @@ def reverse_geocode(lat, lon):
             addr.get("suburb"),
             addr.get("city") or addr.get("town") or addr.get("village"),
             addr.get("state"),
-            addr.get("country")
+            addr.get("country"),
         ]
         parts = [p for p in parts if p]
         return ", ".join(parts) if parts else data.get("display_name", "")
     except Exception:
         return ""
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=2025, debug=True)
