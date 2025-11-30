@@ -2,61 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Mariah Surveillance Log</title>
+  <title>Mariah Encounter Log</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="/static/style.css" rel="stylesheet">
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}"
+  >
 </head>
-<body class="logs-body">
-
-  <div class="container">
-    <h1>Mariah Carey Encounter Log</h1>
-    <div class="subtitle">Every sleigh bell is recorded here.</div>
-
+<body class="page-logs">
+  <div class="logs-container">
+    <h1>Mariah Encounter Log</h1>
+    <div class="subtitle">
+      A record of every time the song found you.
+    </div>
     <div class="nav">
       <button class="btn" onclick="window.location.href='/'">⬅️ Back</button>
       <a class="btn" href="/download">⬇️ Download CSV</a>
     </div>
 
     {% if rows %}
-    <table class="log-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Server Time UTC</th>
-          <th>Client Time</th>
-          <th>Location</th>
-          <th>Accuracy (m)</th>
-          <th>User Agent</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {% for row in rows %}
-        <tr>
-          <td>{{ loop.index }}</td>
-          <td>{{ row.server_timestamp_utc }}</td>
-          <td>{{ row.client_timestamp }}</td>
-          <td>
-            {% if row.latitude and row.longitude %}
-              {{ row.latitude }}, {{ row.longitude }}<br>
-              <a href="https://maps.google.com/?q={{ row.latitude }},{{ row.longitude }}" target="_blank">
-                View Map
-              </a>
-            {% else %}
-              (no location)
-            {% endif %}
-          </td>
-          <td>{{ row.accuracy_m }}</td>
-          <td>{{ row.user_agent }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Server Time (UTC)</th>
+            <th>Client Time</th>
+            <th>Location</th>
+            <th>Accuracy (m)</th>
+            <th>User Agent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ row.server_timestamp_utc }}</td>
+            <td>{{ row.client_timestamp }}</td>
+            <td class="coords">
+              {% if row.latitude and row.longitude %}
+                {{ row.latitude }}, {{ row.longitude }}<br>
+                <a href="https://maps.google.com/?q={{ row.latitude }},{{ row.longitude }}"
+                   target="_blank" class="map-link">
+                  View on map
+                </a>
+              {% else %}
+                (no location)
+              {% endif %}
+            </td>
+            <td>{{ row.accuracy_m }}</td>
+            <td class="ua">{{ row.user_agent }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% else %}
-      <div class="empty">No logs yet. Await the Queen of Christmas.</div>
+      <div class="empty">
+        No logs yet. Head back and wait for the opening notes…
+      </div>
     {% endif %}
   </div>
-
 </body>
 </html>

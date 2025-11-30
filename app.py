@@ -64,14 +64,35 @@ def log_listen():
 @app.route("/logs", methods=["GET"])
 def view_logs():
     rows = []
-    if LOG_FILE.exists():
-        with LOG_FILE.open("r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
 
-    # Show newest first
+    # LOG_FILE should be something like Path("/data/christmas_listens.csv")
+    # or Path("christmas_listens.csv") depending on how you configured it.
+    try:
+        if LOG_FILE.is_file():
+            with LOG_FILE.open("r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+        elif LOG_FILE.exists() and LOG_FILE.is_dir():
+            # Misconfiguration: the path is a directory, not a file
+            return (
+                "LOG_FILE path points to a directory, not a CSV file. "
+                "Check your volume mapping / data directory.",
+                500,
+            )
+        # If it doesn't exist at all, we just show an empty table.
+    except Exception as e:
+        # Optional: log the error server-side
+        app.logger.exception("Error reading log file: %s", e)
+        # But still return *something* valid to the browser
+        return (
+            f"Error reading log file: {e}",
+            500,
+        )
+
+    # Newest first
     rows = list(reversed(rows))
 
+    return render_template("logs.html", rows=rows)
 
 @app.route("/download", methods=["GET"])
 def download_csv():
