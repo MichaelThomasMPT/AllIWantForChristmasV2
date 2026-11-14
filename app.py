@@ -290,4 +290,6 @@ def reverse_geocode(lat: float, lon: float) -> str:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=2025, debug=True)
+    # Local development only; the container runs gunicorn. Debug mode exposes
+    # Werkzeug's interactive debugger, so it is opt-in via FLASK_DEBUG=1.
+    app.run(host="0.0.0.0", port=2025, debug=os.getenv("FLASK_DEBUG") == "1")
